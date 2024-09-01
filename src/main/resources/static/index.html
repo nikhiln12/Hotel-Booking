@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Booking</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Book Your Stay</h1>
+        <form id="booking-form">
+            <div class="form-group">
+                <label for="location">Location</label>
+                <select id="location" name="location" class="form-control" required>
+                    <option value="" disabled selected>Select a location</option>
+                    <!-- Location options will be populated by JavaScript -->
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="hotel">Hotel</label>
+                <select id="hotel" name="hotel" class="form-control" required>
+                    <option value="" disabled selected>Select a hotel</option>
+                    <!-- Hotel options will be populated by JavaScript -->
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="room">Room</label>
+                <input type="number" id="room" name="room" class="form-control" placeholder="Enter room number" required>
+            </div>
+            <div class="form-group">
+                <label for="checkIn">Check-In Date</label>
+                <input type="date" id="checkIn" name="checkIn" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="checkOut">Check-Out Date</label>
+                <input type="date" id="checkOut" name="checkOut" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="amount">Amount</label>
+                <input type="number" id="amount" name="amount" class="form-control" placeholder="Enter amount" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Book Now</button>
+        </form>
+        <div id="userBookings" class="mt-4">
+            <!-- User bookings will be populated here -->
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Load locations
+            fetch('/api/hotels/locations')
+                .then(response => response.json())
+                .then(data => {
+                    const locationSelect = document.getElementById('location');
+                    data.forEach(location => {
+                        const option = document.createElement('option');
+                        option.value = location;
+                        option.textContent = location;
+                        locationSelect.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching locations:', error);
+                });
+
+            // Load hotels based on selected location
+            document.getElementById('location').addEventListener('change', function() {
+                const location = this.value;
+                fetch(`/api/hotels/locations/${location}/hotels`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const hotelSelect = document.getElementById('hotel');
+                        hotelSelect.innerHTML = '<option value="" disabled selected>Select a hotel</option>'; // Reset with default option
+                        data.forEach(hotel => {
+                            const option = document.createElement('option');
+                            option.value = hotel.id;
+                            option.textContent = hotel.name;
+                            hotelSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching hotels:', error);
+                    });
+            });
+
+            // Handle booking form submission
+            document.getElementById('booking-form').addEventListener('submit', function(event) {
+                event.preventDefault();
+                const formData = new FormData(this);
+                fetch('/api/bookings/bookRoom', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert('Room booked successfully!');
+                    // Clear form or redirect as needed
+                    this.reset(); // Reset form fields
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error booking room');
+                });
+            });
+
+            // Handle fetching user bookings
+            function fetchUserBookings() {
+                fetch('/api/bookings/userBookings')
+                    .then(response => response.json())
+                    .then(data => {
+                        const userBookingsDiv = document.getElementById('userBookings');
+                        userBookingsDiv.innerHTML = ''; // Clear previous bookings
+                        data.forEach(booking => {
+                            const bookingElement = document.createElement('div');
+                            bookingElement.className = 'booking-item';
+                            bookingElement.innerHTML = `
+                                <strong>Booking ID:</strong> ${booking.id}<br>
+                                <strong>Room:</strong> ${booking.roomNumber}<br>
+                                <strong>Check-In:</strong> ${booking.checkIn}<br>
+                                <strong>Check-Out:</strong> ${booking.checkOut}<br>
+                                <strong>Amount:</strong> ${booking.amount}<br>
+                                <button class="btn btn-danger btn-sm cancel-btn" data-id="${booking.id}">Cancel</button>
+                                <hr>
+                            `;
+                            userBookingsDiv.appendChild(bookingElement);
+                        });
+
+                        // Add event listeners for cancel buttons
+                        document.querySelectorAll('.cancel-btn').forEach(button => {
+                            button.addEventListener('click', function() {
+                                const bookingId = this.getAttribute('data-id');
+                                cancelBooking(bookingId);
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching user bookings:', error);
+                    });
+            }
+
+            fetchUserBookings(); // Load user bookings on page load
+
+            // Handle cancel booking
+            function cancelBooking(bookingId) {
+                fetch('/api/bookings/cancelBooking', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({ bookingId: bookingId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert('Booking canceled successfully!');
+                    fetchUserBookings(); // Refresh user bookings
+                })
+                .catch(error => {
+                    console.error('Error canceling booking:', error);
+                    alert('Error canceling booking');
+                });
+            }
+        });
+    </script>
+</body>
+</html>
